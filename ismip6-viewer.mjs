@@ -116,6 +116,14 @@ const ismip6ViewerDirective = {
       type: Number,
       doc: 'Grid origin Y coordinate (fallback if coordinate arrays not found)',
     },
+    default_year: {
+      type: Number,
+      doc: 'Default year to display on load (e.g., 2025). Overrides raw time index.',
+    },
+    show_selectors: {
+      type: String,
+      doc: 'Show model/experiment dropdown selectors when panels are pre-configured: "true" or "false" (default: "false" when panels are specified)',
+    },
     width: {
       type: String,
       doc: 'iframe width in CSS units (default: "100%")',
@@ -153,6 +161,8 @@ const ismip6ViewerDirective = {
     if (options.cell_size !== undefined) params.set('cell_size', options.cell_size.toString());
     if (options.x_min !== undefined) params.set('x_min', options.x_min.toString());
     if (options.y_min !== undefined) params.set('y_min', options.y_min.toString());
+    if (options.default_year !== undefined) params.set('default_year', options.default_year.toString());
+    if (options.show_selectors) params.set('show_selectors', options.show_selectors);
 
     if (options.panels) {
       try {

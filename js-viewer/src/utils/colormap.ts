@@ -169,6 +169,10 @@ export function dataToRGBA(
   const rgba = new Uint8ClampedArray(width * height * 4);
   const colors = COLORMAPS[colormapName] || COLORMAPS.viridis;
 
+  // Guard against NaN/invalid color bounds (e.g. user cleared input field)
+  const safeMin = isNaN(vmin) ? 0 : vmin;
+  const safeMax = isNaN(vmax) ? (isNaN(vmin) ? 1 : vmin + 1) : vmax;
+
   for (let i = 0; i < data.length; i++) {
     const value = data[i];
     const pixelIdx = i * 4;
@@ -186,8 +190,8 @@ export function dataToRGBA(
       rgba[pixelIdx + 2] = 0;
       rgba[pixelIdx + 3] = 0;
     } else {
-      const range = vmax - vmin;
-      const t = range !== 0 ? (value - vmin) / range : 0.5;
+      const range = safeMax - safeMin;
+      const t = range !== 0 ? (value - safeMin) / range : 0.5;
       const [r, g, b] = interpolateColor(colors, t);
       rgba[pixelIdx] = r;
       rgba[pixelIdx + 1] = g;

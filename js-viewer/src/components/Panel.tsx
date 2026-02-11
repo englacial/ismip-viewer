@@ -36,6 +36,7 @@ export function Panel({ panel, isActive, canRemove }: PanelProps) {
     variableMetadata,
     selectedVariable,
     targetYear,
+    embedConfig,
   } = useViewerStore();
 
   const unitsLabel = variableMetadata?.units || null;
@@ -183,112 +184,139 @@ export function Panel({ panel, isActive, canRemove }: PanelProps) {
       }}
       onClick={() => setActivePanel(panel.id)}
     >
-      {/* Panel header with model/experiment selectors */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          background: "rgba(255,255,255,0.95)",
-          padding: "8px 12px",
-          borderBottom: "1px solid #e0e0e0",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
-      >
-        <select
-          value={selectedModel || ""}
-          onChange={(e) => setPanelModel(panel.id, e.target.value)}
+      {/* Panel header: compact label when pre-configured, full dropdowns otherwise */}
+      {embedConfig !== null && selectedModel && selectedExperiment && embedConfig.show_selectors !== true ? (
+        <div
           style={{
-            padding: "4px 8px",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-            fontSize: "12px",
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
-          <option value="">Model...</option>
-          {models.map((model) => (
-            <option key={model} value={model}>
-              {model}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedExperiment || ""}
-          onChange={(e) => setPanelExperiment(panel.id, e.target.value)}
-          disabled={!selectedModel}
-          style={{
-            padding: "4px 8px",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-            fontSize: "12px",
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
-          <option value="">Experiment...</option>
-          {availableExperiments.map((exp) => (
-            <option key={exp} value={exp}>
-              {exp}
-            </option>
-          ))}
-        </select>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            loadPanelData(panel.id);
-          }}
-          disabled={isLoading || !selectedModel || !selectedExperiment}
-          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            background: "rgba(255,255,255,0.95)",
             padding: "4px 12px",
-            backgroundColor:
-              isLoading || !selectedModel || !selectedExperiment
-                ? "#ccc"
-                : "#1976d2",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            fontSize: "12px",
-            cursor:
-              isLoading || !selectedModel || !selectedExperiment
-                ? "not-allowed"
-                : "pointer",
+            borderBottom: "1px solid #e0e0e0",
+            display: "flex",
+            alignItems: "center",
           }}
         >
-          {isLoading ? "..." : "Load"}
-        </button>
+          <span style={{ fontSize: "12px", fontWeight: 500 }}>
+            {selectedModel} / {selectedExperiment}
+          </span>
+        </div>
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            background: "rgba(255,255,255,0.95)",
+            padding: "8px 12px",
+            borderBottom: "1px solid #e0e0e0",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <select
+            value={selectedModel || ""}
+            onChange={(e) => setPanelModel(panel.id, e.target.value)}
+            style={{
+              padding: "4px 8px",
+              borderRadius: "4px",
+              border: "1px solid #ccc",
+              fontSize: "12px",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            <option value="">Model...</option>
+            {models.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
 
-        {canRemove && (
+          <select
+            value={selectedExperiment || ""}
+            onChange={(e) => setPanelExperiment(panel.id, e.target.value)}
+            disabled={!selectedModel}
+            style={{
+              padding: "4px 8px",
+              borderRadius: "4px",
+              border: "1px solid #ccc",
+              fontSize: "12px",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            <option value="">Experiment...</option>
+            {availableExperiments.map((exp) => (
+              <option key={exp} value={exp}>
+                {exp}
+              </option>
+            ))}
+          </select>
+
           <button
             onClick={(e) => {
               e.stopPropagation();
-              removePanel(panel.id);
+              loadPanelData(panel.id);
             }}
+            disabled={isLoading || !selectedModel || !selectedExperiment}
             style={{
-              padding: "4px 8px",
-              backgroundColor: "#f44336",
+              padding: "4px 12px",
+              backgroundColor:
+                isLoading || !selectedModel || !selectedExperiment
+                  ? "#ccc"
+                  : "#1976d2",
               color: "white",
               border: "none",
               borderRadius: "4px",
               fontSize: "12px",
-              cursor: "pointer",
+              cursor:
+                isLoading || !selectedModel || !selectedExperiment
+                  ? "not-allowed"
+                  : "pointer",
             }}
           >
-            X
+            {isLoading ? "..." : "Load"}
           </button>
-        )}
-      </div>
+
+          {canRemove && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                removePanel(panel.id);
+              }}
+              style={{
+                padding: "4px 8px",
+                backgroundColor: "#f44336",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "12px",
+                cursor: "pointer",
+              }}
+            >
+              X
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Map view */}
       <div
-        style={{ position: "absolute", top: "48px", left: 0, right: 0, bottom: 0 }}
+        style={{
+          position: "absolute",
+          top: embedConfig !== null && selectedModel && selectedExperiment && embedConfig.show_selectors !== true ? "32px" : "48px",
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
         onMouseLeave={() => setHoverGridPosition(null, null)}
       >
         <DeckGL

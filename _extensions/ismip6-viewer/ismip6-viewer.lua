@@ -20,6 +20,8 @@
 --   vmax        - Color scale maximum
 --   panels      - JSON array of panel configs
 --   controls    - Controls mode: all, time, none
+--   default_year - Default year to display on load (e.g., 2025)
+--   show_selectors - Show dropdowns when panels are pre-configured (true/false)
 --   width       - iframe width (default: 100%)
 --   height      - iframe height (default: 700)
 --   url         - Override viewer base URL
@@ -30,7 +32,8 @@ local PARAM_KEYS = {
   "model", "experiment", "variable", "time",
   "colormap", "vmin", "vmax", "panels", "controls",
   "store_url", "store_ref", "group_path", "data_view",
-  "grid_width", "grid_height", "cell_size", "x_min", "y_min"
+  "grid_width", "grid_height", "cell_size", "x_min", "y_min",
+  "default_year", "show_selectors"
 }
 
 local function url_encode(str)

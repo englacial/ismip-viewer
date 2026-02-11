@@ -300,7 +300,10 @@ export function Controls() {
               <input
                 type="number"
                 value={vmin}
-                onChange={(e) => setColorRange(parseFloat(e.target.value), vmax)}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!isNaN(v)) setColorRange(v, vmax);
+                }}
                 style={{
                   width: "100%",
                   padding: "6px",
@@ -323,7 +326,10 @@ export function Controls() {
               <input
                 type="number"
                 value={vmax}
-                onChange={(e) => setColorRange(vmin, parseFloat(e.target.value))}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!isNaN(v)) setColorRange(vmin, v);
+                }}
                 style={{
                   width: "100%",
                   padding: "6px",

@@ -635,6 +635,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       if (embedConfig?.variable && variables.includes(embedConfig.variable)) {
         overrides.selectedVariable = embedConfig.variable;
       }
+      if (embedConfig?.default_year !== undefined) overrides.targetYear = embedConfig.default_year;
       if (embedConfig?.time !== undefined) overrides.timeIndex = embedConfig.time;
       if (embedConfig?.colormap) overrides.colormap = embedConfig.colormap;
       if (embedConfig?.vmin !== undefined) {
@@ -898,6 +899,9 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   setColormap: (colormap: string) => {
     set({ colormap });
+    if (get().autoRange) {
+      computeAutoRange(get);
+    }
   },
 
   setColorRange: (vmin: number, vmax: number) => {
@@ -1096,6 +1100,15 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         if (range) {
           updates.timeIndex = yr - range.minYear;
         }
+      } else if (get().targetYear !== null && timeLabels) {
+        // targetYear was pre-set (e.g. via default_year param) — compute
+        // the slider's timeIndex now that we know the year range.
+        const allLabels = (updates.panels as Panel[]).map((p: Panel) => p.timeLabels);
+        const range = yearRange(allLabels);
+        if (range) {
+          const yr = get().targetYear!;
+          updates.timeIndex = Math.max(0, Math.min(yr - range.minYear, range.maxYear - range.minYear));
+        }
       }
       set(updates as Partial<ViewerState>);
       console.log(`[Panel ${panelId}] After set: targetYear=${get().targetYear}`);
@@ -1155,9 +1168,12 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   },
 }));
 
+// Diverging colormaps that should be centered on zero
+const DIVERGING_COLORMAPS = new Set(["coolwarm", "RdBu"]);
+
 // Helper to compute auto range across all loaded panels
 function computeAutoRange(get: () => ViewerState) {
-  const { panels, fillValue } = get();
+  const { panels, fillValue, colormap } = get();
   const allValidValues: number[] = [];
 
   for (const panel of panels) {
@@ -1193,6 +1209,13 @@ function computeAutoRange(get: () => ViewerState) {
       p5 = v - margin;
       p95 = v + margin;
     }
+  }
+
+  // For diverging colormaps, center the range on zero
+  if (DIVERGING_COLORMAPS.has(colormap)) {
+    const maxAbs = Math.max(Math.abs(p5), Math.abs(p95));
+    p5 = -maxAbs;
+    p95 = maxAbs;
   }
 
   console.log(`[autoRange] Combined p5=${p5}, p95=${p95} from ${allValidValues.length} values`);

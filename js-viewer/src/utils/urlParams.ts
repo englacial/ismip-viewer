@@ -37,6 +37,10 @@ export interface EmbedConfig {
   group_path?: string;
   /** Data view: "combined" (default), "state", or "flux" */
   data_view?: "combined" | "state" | "flux";
+  /** Default year to display on load (overrides raw time index) */
+  default_year?: number;
+  /** Show model/experiment dropdown selectors when panels are pre-configured */
+  show_selectors?: boolean;
   /** Grid parameter overrides (fallback if coordinate arrays not found) */
   grid_width?: number;
   grid_height?: number;
@@ -75,6 +79,15 @@ export function parseUrlParams(): EmbedConfig | null {
   const dataView = str("data_view");
   if (dataView === "combined" || dataView === "state" || dataView === "flux") {
     config.data_view = dataView;
+  }
+
+  config.default_year = int("default_year");
+
+  const showSelectors = params.get("show_selectors");
+  if (showSelectors === "true" || showSelectors === "1") {
+    config.show_selectors = true;
+  } else if (showSelectors === "false" || showSelectors === "0") {
+    config.show_selectors = false;
   }
 
   // Grid overrides
