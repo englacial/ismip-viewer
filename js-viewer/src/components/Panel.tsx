@@ -75,7 +75,7 @@ export function Panel({ panel, isActive, canRemove }: PanelProps) {
     const [height, width] = dataShape;
     const rgba = dataToRGBA(currentData, width, height, vmin, vmax, colormap, fillValue);
 
-    const imgData = new ImageData(new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, rgba.byteLength), width, height);
+    const imgData = new ImageData(new Uint8ClampedArray(rgba.buffer as ArrayBuffer, rgba.byteOffset, rgba.byteLength), width, height);
 
     createImageBitmap(imgData, { imageOrientation: "flipY" }).then(
       (bmp) => {
@@ -162,10 +162,10 @@ export function Panel({ panel, isActive, canRemove }: PanelProps) {
   const currentViewState = viewState || INITIAL_VIEW_STATE;
 
   const onViewStateChange = useCallback(
-    ({ viewState: newViewState }: { viewState: typeof INITIAL_VIEW_STATE }) => {
+    ({ viewState: newViewState }: { viewState: Record<string, unknown> }) => {
       setViewState({
-        target: newViewState.target,
-        zoom: newViewState.zoom,
+        target: newViewState.target as [number, number, number],
+        zoom: newViewState.zoom as number,
       });
     },
     [setViewState]

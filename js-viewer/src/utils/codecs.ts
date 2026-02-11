@@ -116,10 +116,10 @@ class ShuffleCodec {
  */
 class DebugZlibCodec {
   readonly kind = "bytes_to_bytes" as const;
-  private inner: InstanceType<typeof Zlib>;
+  private inner: any;
 
   constructor(level = 1) {
-    this.inner = new Zlib(level);
+    this.inner = new (Zlib as any)(level);
   }
 
   static fromConfig(config: { level?: number }): DebugZlibCodec {
@@ -176,10 +176,10 @@ class DebugZlibCodec {
  */
 export function registerCodecs(): void {
   // Register numcodecs.zlib with debug wrapper
-  registry.set("numcodecs.zlib", () => DebugZlibCodec);
+  registry.set("numcodecs.zlib", () => Promise.resolve(DebugZlibCodec as any));
 
   // Register numcodecs.shuffle
-  registry.set("numcodecs.shuffle", () => ShuffleCodec);
+  registry.set("numcodecs.shuffle", () => Promise.resolve(ShuffleCodec as any));
 
   console.log("[codecs] Registered numcodecs.zlib and numcodecs.shuffle");
 }
