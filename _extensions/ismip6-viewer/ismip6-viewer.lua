@@ -48,9 +48,12 @@ return {
         '<p><em>[Interactive ISMIP6 viewer — requires HTML output]</em></p>')
     end
 
-    local base_url = pandoc.utils.stringify(kwargs["url"] or DEFAULT_URL)
-    local width = pandoc.utils.stringify(kwargs["width"] or "100%")
-    local height = pandoc.utils.stringify(kwargs["height"] or "700")
+    local base_url = pandoc.utils.stringify(kwargs["url"] or "")
+    if base_url == "" then base_url = DEFAULT_URL end
+    local width = pandoc.utils.stringify(kwargs["width"] or "")
+    if width == "" then width = "100%" end
+    local height = pandoc.utils.stringify(kwargs["height"] or "")
+    if height == "" then height = "700" end
 
     -- Build query parameters
     local params = { "autoload=true" }
