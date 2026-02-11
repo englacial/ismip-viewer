@@ -24,7 +24,7 @@
 --   height      - iframe height (default: 700)
 --   url         - Override viewer base URL
 
-local DEFAULT_URL = "https://models.englacial.org/"
+local DEFAULT_URL = "/static/models/"
 
 local PARAM_KEYS = {
   "model", "experiment", "variable", "time",
