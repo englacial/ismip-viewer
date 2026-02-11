@@ -547,18 +547,23 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       // Determine store URL (configurable via embed param)
       const storeUrl = embedConfig?.store_url || DEFAULT_STORE_URL;
 
-      // In dev mode, route virtual chunk URLs through the proxy
-      const virtualUrlTransformer = import.meta.env.DEV
-        ? (url: string) => {
-            if (url.startsWith("s3://us-west-2.opendata.source.coop/englacial/ismip6/")) {
-              return url.replace("s3://us-west-2.opendata.source.coop/englacial/ismip6/", "/ismip6-proxy/");
-            }
-            if (url.startsWith("gs://ismip6/")) {
-              return url.replace("gs://ismip6/", "/ismip6-proxy/");
-            }
-            return url;
-          }
-        : undefined;
+      // Transform S3/GCS URLs to accessible HTTPS endpoints.
+      // In dev mode, route through the Vite proxy; in production, use data.source.coop directly.
+      const virtualUrlTransformer = (url: string) => {
+        if (url.startsWith("s3://us-west-2.opendata.source.coop/")) {
+          const path = url.replace("s3://us-west-2.opendata.source.coop/", "");
+          return import.meta.env.DEV
+            ? `/ismip6-proxy/${path.replace("englacial/ismip6/", "")}`
+            : `https://data.source.coop/${path}`;
+        }
+        if (url.startsWith("gs://ismip6/")) {
+          const path = url.replace("gs://ismip6/", "");
+          return import.meta.env.DEV
+            ? `/ismip6-proxy/${path}`
+            : `https://data.source.coop/englacial/ismip6/${path}`;
+        }
+        return url;
+      };
 
       // Determine store ref: branch, tag, or snapshot ID
       const storeRef = embedConfig?.store_ref || "main";
