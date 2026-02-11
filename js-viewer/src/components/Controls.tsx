@@ -37,7 +37,9 @@ export function Controls() {
 
   // Compute year range (union of all panels)
   const range = yearRange(panels.map((p) => p.timeLabels));
-  const maxSlider = range ? range.maxYear - range.minYear : 0;
+  // Fall back to index-based slider when time labels can't be decoded
+  const maxTimeFromPanels = Math.max(0, ...panels.map((p) => p.maxTimeIndex ?? 0));
+  const maxSlider = range ? range.maxYear - range.minYear : maxTimeFromPanels;
   const currentYear = range ? range.minYear + timeIndex : null;
 
   // Check if any panel is loading
@@ -209,12 +211,14 @@ export function Controls() {
               fontWeight: 500,
             }}
           >
-            Year: {currentYear ?? timeIndex}
+            {range ? `Year: ${currentYear}` : `Time step: ${timeIndex}`}
           </label>
+          {range && (
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#888", marginBottom: "2px" }}>
-            <span>{range!.minYear}</span>
-            <span>{range!.maxYear}</span>
+            <span>{range.minYear}</span>
+            <span>{range.maxYear}</span>
           </div>
+          )}
           <input
             type="range"
             min={0}

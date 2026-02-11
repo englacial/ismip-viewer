@@ -471,6 +471,12 @@ async function discoverTimeLabels(
 
     if (encoding) {
       const labels = decodeTimeArray(values, encoding);
+      // Check if all labels are NaN (happens when inline chunks can't be read by icechunk-js)
+      const validLabels = labels.filter(l => !l.includes('NaN'));
+      if (validLabels.length === 0) {
+        console.warn("[timeLabels] All decoded labels are NaN (inline chunk issue), returning null");
+        return null;
+      }
       console.log(`[timeLabels] Decoded ${labels.length} time labels, first=${labels[0]}, last=${labels[labels.length - 1]}`);
       return labels;
     }
@@ -696,7 +702,32 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       }
 
       const defaultVariable = variables.length > 0 ? variables[0] : null;
-      const initialPanel = createEmptyPanel();
+
+      // Preserve existing panels if their models/experiments exist in the new view
+      const currentPanels = get().panels;
+      let newPanels: Panel[];
+      const modelsSet = new Set(models);
+      const validPanels = currentPanels.filter((p) => {
+        if (!p.selectedModel) return true;
+        if (!modelsSet.has(p.selectedModel)) return false;
+        const exps = experiments.get(p.selectedModel);
+        if (p.selectedExperiment && exps && !exps.includes(p.selectedExperiment)) return false;
+        return true;
+      }).map((p) => ({
+        ...p,
+        currentData: null,
+        dataShape: null,
+        isLoading: false,
+        timeLabels: null,
+        resolvedTimeIndex: null,
+      }));
+
+      if (validPanels.length > 0) {
+        newPanels = validPanels;
+      } else {
+        const initialPanel = createEmptyPanel();
+        newPanels = [initialPanel];
+      }
 
       set({
         models,
@@ -706,8 +737,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         gridConfig,
         fillValue,
         selectedVariable: defaultVariable,
-        panels: [initialPanel],
-        activePanelId: initialPanel.id,
+        panels: newPanels,
+        activePanelId: newPanels[0].id,
         timeIndex: 0,
         targetYear: null,
         variableMetadata: null,
@@ -976,11 +1007,14 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         resolvedTimeIndex = findIndexForYear(timeLabels, targetYear);
         console.log(`[Panel ${panelId}] Year-aligned: targetYear=${targetYear}, resolvedIndex=${resolvedTimeIndex}${resolvedTimeIndex !== null ? ` (${timeLabels[resolvedTimeIndex]})` : ' (out of range)'}`);
       } else if (targetYear !== null && !timeLabels && maxTime > 0) {
-        // Time dimension exists but labels couldn't be decoded — can't
-        // determine if targetYear is in range.  Show out-of-range rather
-        // than displaying data from an arbitrary time step.
-        console.warn(`[Panel ${panelId}] Time dimension (maxTime=${maxTime}) but no time labels; treating as out-of-range`);
-        resolvedTimeIndex = null;
+        // Time dimension exists but labels couldn't be decoded (e.g. inline
+        // chunks not readable by icechunk-js).  Fall back to index-based
+        // time stepping so the data still displays.
+        console.warn(`[Panel ${panelId}] Time dimension (maxTime=${maxTime}) but no time labels; using index-based time`);
+        resolvedTimeIndex = Math.min(timeIndex, maxTime);
+      } else if (targetYear === null && !timeLabels && maxTime > 0) {
+        // No target year and no time labels — use index-based time
+        resolvedTimeIndex = Math.min(timeIndex, maxTime);
       }
 
       // If target year is out of this panel's range, store null data
