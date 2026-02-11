@@ -73,7 +73,7 @@ With a default year and compact headers (no dropdowns):
 | `width` | string | no | iframe width (default: `100%`) |
 | `height` | string | no | iframe height (default: `700px` / `700`) |
 
-See [embedding documentation](https://github.com/englacial/ismip-indexing/blob/main/docs/embedding.md) for full details.
+See [embedding documentation](docs/embedding.md) for full details.
 
 ## License
 

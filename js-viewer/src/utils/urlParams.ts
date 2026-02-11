@@ -41,6 +41,8 @@ export interface EmbedConfig {
   default_year?: number;
   /** Show model/experiment dropdown selectors when panels are pre-configured */
   show_selectors?: boolean;
+  /** Show floating colorbar in embed mode (default: true) */
+  show_colorbar?: boolean;
   /** Grid parameter overrides (fallback if coordinate arrays not found) */
   grid_width?: number;
   grid_height?: number;
@@ -88,6 +90,11 @@ export function parseUrlParams(): EmbedConfig | null {
     config.show_selectors = true;
   } else if (showSelectors === "false" || showSelectors === "0") {
     config.show_selectors = false;
+  }
+
+  const showColorbar = params.get("show_colorbar");
+  if (showColorbar === "false" || showColorbar === "0") {
+    config.show_colorbar = false;
   }
 
   // Grid overrides

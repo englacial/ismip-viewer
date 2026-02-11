@@ -124,6 +124,10 @@ const ismip6ViewerDirective = {
       type: String,
       doc: 'Show model/experiment dropdown selectors when panels are pre-configured: "true" or "false" (default: "false" when panels are specified)',
     },
+    show_colorbar: {
+      type: String,
+      doc: 'Show floating colorbar in embed mode: "true" (default) or "false"',
+    },
     width: {
       type: String,
       doc: 'iframe width in CSS units (default: "100%")',
@@ -163,6 +167,7 @@ const ismip6ViewerDirective = {
     if (options.y_min !== undefined) params.set('y_min', options.y_min.toString());
     if (options.default_year !== undefined) params.set('default_year', options.default_year.toString());
     if (options.show_selectors) params.set('show_selectors', options.show_selectors);
+    if (options.show_colorbar) params.set('show_colorbar', options.show_colorbar);
 
     if (options.panels) {
       try {

@@ -10,9 +10,10 @@ interface PanelProps {
   panel: PanelType;
   isActive: boolean;
   canRemove: boolean;
+  squareAspect?: boolean;
 }
 
-export function Panel({ panel, isActive, canRemove }: PanelProps) {
+export function Panel({ panel, isActive, canRemove, squareAspect }: PanelProps) {
   const {
     colormap,
     vmin,
@@ -46,12 +47,35 @@ export function Panel({ panel, isActive, canRemove }: PanelProps) {
   const { width: GRID_WIDTH, height: GRID_HEIGHT, cellSize: CELL_SIZE, xMin: X_MIN, yMin: Y_MIN, xMax: X_MAX, yMax: Y_MAX } = gridConfig;
   const CENTER_X = (X_MIN + X_MAX) / 2;
   const CENTER_Y = (Y_MIN + Y_MAX) / 2;
+  const dataExtent = Math.max(X_MAX - X_MIN, Y_MAX - Y_MIN);
   const INITIAL_VIEW_STATE = useMemo(() => ({
     target: [CENTER_X, CENTER_Y, 0] as [number, number, number],
     zoom: -13,
     minZoom: -16,
     maxZoom: 0,
   }), [CENTER_X, CENTER_Y]);
+
+  // Auto-fit zoom: measure map container and compute zoom to fit data extent
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const hasAutoFitted = useRef(false);
+
+  useEffect(() => {
+    const el = mapContainerRef.current;
+    if (!el || hasAutoFitted.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      if (hasAutoFitted.current) { observer.disconnect(); return; }
+      const { width: w, height: h } = entries[0].contentRect;
+      if (w > 0 && h > 0 && dataExtent > 0 && !viewState) {
+        const fitZoom = Math.log2(Math.min(w, h) / dataExtent * 0.85);
+        setViewState({ target: [CENTER_X, CENTER_Y, 0], zoom: fitZoom });
+        hasAutoFitted.current = true;
+        observer.disconnect();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [dataExtent, CENTER_X, CENTER_Y, viewState, setViewState]);
 
   const { currentData, dataShape, selectedModel, selectedExperiment, isLoading, error, groupMetadata, allNaN } = panel;
   const [showInfo, setShowInfo] = useState(false);
@@ -176,7 +200,7 @@ export function Panel({ panel, isActive, canRemove }: PanelProps) {
     <div
       style={{
         width: "100%",
-        height: "100%",
+        ...(squareAspect ? { aspectRatio: "1" } : { height: "100%" }),
         position: "relative",
         border: isActive ? "2px solid #1976d2" : "1px solid #e0e0e0",
         borderRadius: "4px",
@@ -310,6 +334,7 @@ export function Panel({ panel, isActive, canRemove }: PanelProps) {
 
       {/* Map view */}
       <div
+        ref={mapContainerRef}
         style={{
           position: "absolute",
           top: embedConfig !== null && selectedModel && selectedExperiment && embedConfig.show_selectors !== true ? "32px" : "48px",

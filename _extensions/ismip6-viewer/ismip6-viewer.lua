@@ -33,7 +33,7 @@ local PARAM_KEYS = {
   "colormap", "vmin", "vmax", "panels", "controls",
   "store_url", "store_ref", "group_path", "data_view",
   "grid_width", "grid_height", "cell_size", "x_min", "y_min",
-  "default_year", "show_selectors"
+  "default_year", "show_selectors", "show_colorbar"
 }
 
 local function url_encode(str)

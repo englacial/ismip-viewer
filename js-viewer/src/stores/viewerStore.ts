@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { IcechunkStore } from "icechunk-js";
+import { IcechunkStore } from "@englacial/icechunk-js";
 import * as zarr from "zarrita";
 import { registerCodecs } from "../utils/codecs";
 import { parseUrlParams, EmbedConfig } from "../utils/urlParams";

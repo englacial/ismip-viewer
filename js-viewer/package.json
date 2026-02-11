@@ -14,7 +14,7 @@
     "@deck.gl/layers": "^9.0.0",
     "@deck.gl/react": "^9.0.0",
     "@luma.gl/core": "^9.0.0",
-    "icechunk-js": "github:englacial/icechunk-js",
+    "@englacial/icechunk-js": "^0.1.0",
     "numcodecs": "^0.3.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
