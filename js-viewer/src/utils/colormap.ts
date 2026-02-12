@@ -165,6 +165,7 @@ export function dataToRGBA(
   vmax: number,
   colormapName: string,
   fillValue?: number | null,
+  ignoreValue?: number | null,
 ): Uint8ClampedArray {
   const rgba = new Uint8ClampedArray(width * height * 4);
   const colors = COLORMAPS[colormapName] || COLORMAPS.viridis;
@@ -177,14 +178,15 @@ export function dataToRGBA(
     const value = data[i];
     const pixelIdx = i * 4;
 
-    // Treat NaN, Infinity, and fill values as transparent
+    // Treat NaN, Infinity, fill values, and ignore values as transparent
     // Use approximate comparison for fill value because float32 data
     // loses precision vs float64 metadata fill value
     const isFill = fillValue != null
       ? Math.abs(value) > 1e10 || Math.abs(value - fillValue) < Math.abs(fillValue) * 1e-6
       : Math.abs(value) > 1e10;
+    const isIgnored = ignoreValue != null && value === ignoreValue;
 
-    if (isNaN(value) || !isFinite(value) || isFill) {
+    if (isNaN(value) || !isFinite(value) || isFill || isIgnored) {
       rgba[pixelIdx] = 0;
       rgba[pixelIdx + 1] = 0;
       rgba[pixelIdx + 2] = 0;

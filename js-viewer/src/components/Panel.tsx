@@ -34,6 +34,7 @@ export function Panel({ panel, isActive, canRemove, squareAspect }: PanelProps) 
     getValueAtGridPosition,
     gridConfig,
     fillValue,
+    ignoreValue,
     variableMetadata,
     selectedVariable,
     targetYear,
@@ -98,7 +99,7 @@ export function Panel({ panel, isActive, canRemove, squareAspect }: PanelProps) 
 
     const gen = ++bitmapGenRef.current;
     const [height, width] = dataShape;
-    const rgba = dataToRGBA(currentData, width, height, vmin, vmax, colormap, fillValue);
+    const rgba = dataToRGBA(currentData, width, height, vmin, vmax, colormap, fillValue, ignoreValue);
 
     const imgData = new ImageData(new Uint8ClampedArray(rgba.buffer as ArrayBuffer, rgba.byteOffset, rgba.byteLength), width, height);
 
@@ -121,7 +122,7 @@ export function Panel({ panel, isActive, canRemove, squareAspect }: PanelProps) 
       // If the effect re-runs before the promise resolves, the gen
       // check above will discard the stale bitmap.
     };
-  }, [currentData, dataShape, colormap, vmin, vmax, fillValue]);
+  }, [currentData, dataShape, colormap, vmin, vmax, fillValue, ignoreValue]);
 
   const onHover = useCallback(
     (info: PickingInfo) => {

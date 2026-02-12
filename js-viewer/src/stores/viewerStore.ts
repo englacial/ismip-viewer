@@ -42,6 +42,12 @@ const DEFAULT_GRID: GridConfig = {
 export interface VariableMetadata {
   units: string | null;
   standardName: string | null;
+  /** Sentinel value detected during ingest (e.g., 0 for zero-filled ocean regions) */
+  ignoreValue: number | null;
+  /** CF-compliant valid_min (values below are treated as missing) */
+  validMin: number | null;
+  /** CF-compliant valid_max (values above are treated as missing) */
+  validMax: number | null;
 }
 
 // Metadata for a group (model/experiment) from zarr group attrs
@@ -106,6 +112,9 @@ interface ViewerState {
 
   // Fill value for masking (from zarr metadata or default)
   fillValue: number | null;
+
+  // User-specified value to treat as NaN (e.g., 0 for zero-filled regions)
+  ignoreValue: number | null;
 
   // Variable metadata (units, standard_name) for the current variable
   variableMetadata: VariableMetadata | null;
@@ -407,10 +416,13 @@ async function discoverVariableMetadata(
     return {
       units: typeof attrs?.units === "string" ? attrs.units : null,
       standardName: typeof attrs?.standard_name === "string" ? attrs.standard_name : null,
+      ignoreValue: typeof attrs?.ignore_value === "number" ? attrs.ignore_value : null,
+      validMin: typeof attrs?.valid_min === "number" ? attrs.valid_min : null,
+      validMax: typeof attrs?.valid_max === "number" ? attrs.valid_max : null,
     };
   } catch (err) {
     console.warn("[variableMetadata] Could not read:", err);
-    return { units: null, standardName: null };
+    return { units: null, standardName: null, ignoreValue: null, validMin: null, validMax: null };
   }
 }
 
@@ -521,6 +533,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   variables: [],
   hierarchyDepth: 2,
   fillValue: null,
+  ignoreValue: null,
   variableMetadata: null,
 
   // Start with one empty panel
@@ -647,6 +660,9 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         overrides.autoRange = false;
       }
 
+      // Read ignore_value from embed config
+      const ignoreValue = embedConfig?.ignore_value !== undefined ? embedConfig.ignore_value : null;
+
       set({
         store,
         models,
@@ -655,6 +671,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         hierarchyDepth,
         gridConfig,
         fillValue,
+        ignoreValue,
         selectedVariable: defaultVariable,
         panels: initialPanels,
         activePanelId: initialPanels[0]?.id || null,
@@ -921,7 +938,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   },
 
   getValueAtGridPosition: (panelId: string, gridX: number, gridY: number) => {
-    const { panels, fillValue } = get();
+    const { panels, fillValue, ignoreValue } = get();
     const panel = panels.find((p) => p.id === panelId);
     if (!panel?.currentData || !panel?.dataShape) return null;
 
@@ -933,6 +950,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     // Use approximate comparison: float32 data loses precision vs float64 fill value
     if (Math.abs(value) > 1e10) return null;
     if (fillValue !== null && Math.abs(value - fillValue) < Math.abs(fillValue) * 1e-6) return null;
+    if (ignoreValue !== null && value === ignoreValue) return null;
     return value;
   },
 
@@ -1080,10 +1098,24 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       const newFillValue = await discoverFillValue(store, arrayPath);
       const varMeta = await discoverVariableMetadata(store, arrayPath);
 
+      // Auto-detect ignoreValue from store attrs if not set via URL param.
+      // Priority: URL param > store ignore_value attr > store valid_min/valid_max
+      const currentIgnoreValue = get().ignoreValue;
+      const urlParamIgnoreValue = get().embedConfig?.ignore_value;
+      let effectiveIgnoreValue = currentIgnoreValue;
+      if (urlParamIgnoreValue === undefined) {
+        // No URL param — check store attrs
+        if (varMeta.ignoreValue !== null) {
+          effectiveIgnoreValue = varMeta.ignoreValue;
+          console.log(`[ignoreValue] Auto-detected from store attr: ${effectiveIgnoreValue}`);
+        }
+      }
+
       // If targetYear hasn't been set yet, derive it from this panel's time labels
       const updates: Record<string, unknown> = {
         fillValue: newFillValue,
         variableMetadata: varMeta,
+        ignoreValue: effectiveIgnoreValue,
         panels: get().panels.map((p) =>
           p.id === panelId
             ? { ...p, currentData: data, dataShape, maxTimeIndex: maxTime, isLoading: false, groupMetadata: groupMeta, timeLabels, resolvedTimeIndex, allNaN: dataAllNaN }
@@ -1173,7 +1205,7 @@ const DIVERGING_COLORMAPS = new Set(["coolwarm", "RdBu"]);
 
 // Helper to compute auto range across all loaded panels
 function computeAutoRange(get: () => ViewerState) {
-  const { panels, fillValue, colormap } = get();
+  const { panels, fillValue, ignoreValue, colormap } = get();
   const allValidValues: number[] = [];
 
   for (const panel of panels) {
@@ -1183,6 +1215,7 @@ function computeAutoRange(get: () => ViewerState) {
       if (isNaN(v) || !isFinite(v)) continue;
       if (Math.abs(v) > 1e10) continue;
       if (fillValue !== null && Math.abs(v - fillValue) < Math.abs(fillValue) * 1e-6) continue;
+      if (ignoreValue !== null && v === ignoreValue) continue;
       allValidValues.push(v);
     }
   }

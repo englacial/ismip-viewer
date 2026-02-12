@@ -43,6 +43,8 @@ export interface EmbedConfig {
   show_selectors?: boolean;
   /** Show floating colorbar in embed mode (default: true) */
   show_colorbar?: boolean;
+  /** Value to treat as NaN (e.g., 0 for zero-filled regions) */
+  ignore_value?: number;
   /** Grid parameter overrides (fallback if coordinate arrays not found) */
   grid_width?: number;
   grid_height?: number;
@@ -84,6 +86,7 @@ export function parseUrlParams(): EmbedConfig | null {
   }
 
   config.default_year = int("default_year");
+  config.ignore_value = num("ignore_value");
 
   const showSelectors = params.get("show_selectors");
   if (showSelectors === "true" || showSelectors === "1") {
