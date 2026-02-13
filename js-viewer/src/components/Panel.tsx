@@ -34,15 +34,16 @@ export function Panel({ panel, isActive, canRemove, squareAspect }: PanelProps) 
     getValueAtGridPosition,
     gridConfig,
     fillValue,
-    ignoreValue,
-    variableMetadata,
+    userIgnoreEnabled,
+    userIgnoreValue,
     selectedVariable,
     targetYear,
     embedConfig,
   } = useViewerStore();
 
-  const unitsLabel = variableMetadata?.units || null;
-  const standardName = variableMetadata?.standardName || null;
+  const effectiveIgnoreValue = userIgnoreEnabled ? userIgnoreValue : panel.ignoreValue;
+  const unitsLabel = panel.variableMetadata?.units || null;
+  const standardName = panel.variableMetadata?.standardName || null;
 
   // Derive grid geometry from store config
   const { width: GRID_WIDTH, height: GRID_HEIGHT, cellSize: CELL_SIZE, xMin: X_MIN, yMin: Y_MIN, xMax: X_MAX, yMax: Y_MAX } = gridConfig;
@@ -99,9 +100,9 @@ export function Panel({ panel, isActive, canRemove, squareAspect }: PanelProps) 
 
     const gen = ++bitmapGenRef.current;
     const [height, width] = dataShape;
-    const validMin = variableMetadata?.validMin ?? null;
-    const validMax = variableMetadata?.validMax ?? null;
-    const rgba = dataToRGBA(currentData, width, height, vmin, vmax, colormap, fillValue, ignoreValue, validMin, validMax);
+    const validMin = panel.variableMetadata?.validMin ?? null;
+    const validMax = panel.variableMetadata?.validMax ?? null;
+    const rgba = dataToRGBA(currentData, width, height, vmin, vmax, colormap, fillValue, effectiveIgnoreValue, validMin, validMax);
 
     const imgData = new ImageData(new Uint8ClampedArray(rgba.buffer as ArrayBuffer, rgba.byteOffset, rgba.byteLength), width, height);
 
@@ -124,7 +125,7 @@ export function Panel({ panel, isActive, canRemove, squareAspect }: PanelProps) 
       // If the effect re-runs before the promise resolves, the gen
       // check above will discard the stale bitmap.
     };
-  }, [currentData, dataShape, colormap, vmin, vmax, fillValue, ignoreValue, variableMetadata?.validMin, variableMetadata?.validMax]);
+  }, [currentData, dataShape, colormap, vmin, vmax, fillValue, effectiveIgnoreValue, panel.variableMetadata?.validMin, panel.variableMetadata?.validMax]);
 
   const onHover = useCallback(
     (info: PickingInfo) => {

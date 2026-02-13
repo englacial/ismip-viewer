@@ -75,6 +75,10 @@ export interface Panel {
   timeLabels: string[] | null;
   resolvedTimeIndex: number | null;
   allNaN: boolean;
+  /** Per-panel ignore value (from store attrs or URL param) */
+  ignoreValue: number | null;
+  /** Per-panel variable metadata (units, valid_min, valid_max, etc.) */
+  variableMetadata: VariableMetadata | null;
 }
 
 // Known coordinate/dimension variable names to exclude from data variables
@@ -113,12 +117,6 @@ interface ViewerState {
   // Fill value for masking (from zarr metadata or default)
   fillValue: number | null;
 
-  // User-specified value to treat as NaN (e.g., 0 for zero-filled regions)
-  ignoreValue: number | null;
-
-  // Variable metadata (units, standard_name) for the current variable
-  variableMetadata: VariableMetadata | null;
-
   // Panels
   panels: Panel[];
   activePanelId: string | null;
@@ -131,6 +129,10 @@ interface ViewerState {
   vmin: number;
   vmax: number;
   autoRange: boolean;
+
+  // User-controlled ignore value (standalone mode UI)
+  userIgnoreEnabled: boolean;
+  userIgnoreValue: number;
 
   // Shared view state for linked zoom/pan
   viewState: {
@@ -155,6 +157,8 @@ interface ViewerState {
   setColormap: (colormap: string) => void;
   setColorRange: (vmin: number, vmax: number) => void;
   setAutoRange: (auto: boolean) => void;
+  setUserIgnoreEnabled: (enabled: boolean) => void;
+  setUserIgnoreValue: (value: number) => void;
   setViewState: (viewState: { target: [number, number, number]; zoom: number }) => void;
   setHoverGridPosition: (position: { gridX: number; gridY: number } | null, panelId?: string | null) => void;
   getValueAtGridPosition: (panelId: string, gridX: number, gridY: number) => number | null;
@@ -181,6 +185,8 @@ function createEmptyPanel(): Panel {
     timeLabels: null,
     resolvedTimeIndex: 0,
     allNaN: false,
+    ignoreValue: null,
+    variableMetadata: null,
   };
 }
 
@@ -533,8 +539,6 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   variables: [],
   hierarchyDepth: 2,
   fillValue: null,
-  ignoreValue: null,
-  variableMetadata: null,
 
   // Start with one empty panel
   panels: [createEmptyPanel()],
@@ -548,6 +552,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   vmin: 0,
   vmax: 4000,
   autoRange: true,
+  userIgnoreEnabled: false,
+  userIgnoreValue: 0,
   viewState: null,
   hoverGridPosition: null,
   hoveredPanelId: null,
@@ -660,9 +666,6 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         overrides.autoRange = false;
       }
 
-      // Read ignore_value from embed config
-      const ignoreValue = embedConfig?.ignore_value !== undefined ? embedConfig.ignore_value : null;
-
       set({
         store,
         models,
@@ -671,11 +674,12 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         hierarchyDepth,
         gridConfig,
         fillValue,
-        ignoreValue,
         selectedVariable: defaultVariable,
         panels: initialPanels,
         activePanelId: initialPanels[0]?.id || null,
         isInitializing: false,
+        // Enable user ignore value control in standalone mode (sidebar visible)
+        userIgnoreEnabled: embedConfig === null,
         ...overrides,
       });
 
@@ -743,6 +747,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         isLoading: false,
         timeLabels: null,
         resolvedTimeIndex: null,
+        ignoreValue: null,
+        variableMetadata: null,
       }));
 
       if (validPanels.length > 0) {
@@ -764,7 +770,6 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         activePanelId: newPanels[0].id,
         timeIndex: 0,
         targetYear: null,
-        variableMetadata: null,
         isInitializing: false,
       });
     } catch (err) {
@@ -834,6 +839,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
         resolvedTimeIndex: null,
         allNaN: false,
         error: null,
+        ignoreValue: null,
+        variableMetadata: null,
       };
     });
 
@@ -866,6 +873,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
             resolvedTimeIndex: null,
             allNaN: false,
             error: null,
+            ignoreValue: null,
+            variableMetadata: null,
           }
         : p
     );
@@ -927,6 +936,23 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
 
   setAutoRange: (auto: boolean) => {
     set({ autoRange: auto });
+    if (auto) {
+      computeAutoRange(get);
+    }
+  },
+
+  setUserIgnoreEnabled: (enabled: boolean) => {
+    set({ userIgnoreEnabled: enabled });
+    if (get().autoRange) {
+      computeAutoRange(get);
+    }
+  },
+
+  setUserIgnoreValue: (value: number) => {
+    set({ userIgnoreValue: value });
+    if (get().autoRange) {
+      computeAutoRange(get);
+    }
   },
 
   setViewState: (viewState) => {
@@ -938,7 +964,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   },
 
   getValueAtGridPosition: (panelId: string, gridX: number, gridY: number) => {
-    const { panels, fillValue, ignoreValue, variableMetadata } = get();
+    const { panels, fillValue, userIgnoreEnabled, userIgnoreValue } = get();
     const panel = panels.find((p) => p.id === panelId);
     if (!panel?.currentData || !panel?.dataShape) return null;
 
@@ -950,10 +976,11 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     // Use approximate comparison: float32 data loses precision vs float64 fill value
     if (Math.abs(value) > 1e10) return null;
     if (fillValue !== null && Math.abs(value - fillValue) < Math.abs(fillValue) * 1e-6) return null;
-    if (ignoreValue !== null && value === ignoreValue) return null;
+    const effectiveIgnore = userIgnoreEnabled ? userIgnoreValue : panel.ignoreValue;
+    if (effectiveIgnore !== null && value === effectiveIgnore) return null;
     // CF valid_range: values outside [valid_min, valid_max] are treated as missing
-    const validMin = variableMetadata?.validMin ?? null;
-    const validMax = variableMetadata?.validMax ?? null;
+    const validMin = panel.variableMetadata?.validMin ?? null;
+    const validMax = panel.variableMetadata?.validMax ?? null;
     if (validMin !== null && value < validMin) return null;
     if (validMax !== null && value > validMax) return null;
     return value;
@@ -1103,27 +1130,30 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       const newFillValue = await discoverFillValue(store, arrayPath);
       const varMeta = await discoverVariableMetadata(store, arrayPath);
 
-      // Auto-detect ignoreValue from store attrs if not set via URL param.
-      // Priority: URL param > store ignore_value attr > store valid_min/valid_max
-      const currentIgnoreValue = get().ignoreValue;
-      const urlParamIgnoreValue = get().embedConfig?.ignore_value;
-      let effectiveIgnoreValue = currentIgnoreValue;
-      if (urlParamIgnoreValue === undefined) {
-        // No URL param — check store attrs
-        if (varMeta.ignoreValue !== null) {
-          effectiveIgnoreValue = varMeta.ignoreValue;
-          console.log(`[ignoreValue] Auto-detected from store attr: ${effectiveIgnoreValue}`);
-        }
+      // Determine this panel's ignoreValue (per-panel, not global).
+      // Priority: per-panel URL config > global URL param > store attr > null
+      const embedPanels = get().embedConfig?.panels;
+      const panelUrlConfig = embedPanels?.find(
+        (pc) => pc.model === panel.selectedModel && pc.experiment === panel.selectedExperiment
+      );
+      const perPanelUrlIgnore = panelUrlConfig?.ignore_value;
+      const globalUrlIgnore = get().embedConfig?.ignore_value;
+      let panelIgnoreValue: number | null = null;
+      if (perPanelUrlIgnore !== undefined) {
+        panelIgnoreValue = perPanelUrlIgnore;
+      } else if (globalUrlIgnore !== undefined) {
+        panelIgnoreValue = globalUrlIgnore;
+      } else if (varMeta.ignoreValue !== null) {
+        panelIgnoreValue = varMeta.ignoreValue;
+        console.log(`[ignoreValue] Auto-detected from store attr for ${panelId}: ${panelIgnoreValue}`);
       }
 
       // If targetYear hasn't been set yet, derive it from this panel's time labels
       const updates: Record<string, unknown> = {
         fillValue: newFillValue,
-        variableMetadata: varMeta,
-        ignoreValue: effectiveIgnoreValue,
         panels: get().panels.map((p) =>
           p.id === panelId
-            ? { ...p, currentData: data, dataShape, maxTimeIndex: maxTime, isLoading: false, groupMetadata: groupMeta, timeLabels, resolvedTimeIndex, allNaN: dataAllNaN }
+            ? { ...p, currentData: data, dataShape, maxTimeIndex: maxTime, isLoading: false, groupMetadata: groupMeta, timeLabels, resolvedTimeIndex, allNaN: dataAllNaN, ignoreValue: panelIgnoreValue, variableMetadata: varMeta }
             : p
         ),
       };
@@ -1210,13 +1240,14 @@ const DIVERGING_COLORMAPS = new Set(["coolwarm", "RdBu"]);
 
 // Helper to compute auto range across all loaded panels
 function computeAutoRange(get: () => ViewerState) {
-  const { panels, fillValue, ignoreValue, colormap, variableMetadata } = get();
-  const validMin = variableMetadata?.validMin ?? null;
-  const validMax = variableMetadata?.validMax ?? null;
+  const { panels, fillValue, colormap, userIgnoreEnabled, userIgnoreValue } = get();
   const allValidValues: number[] = [];
 
   for (const panel of panels) {
     if (!panel.currentData) continue;
+    const ignoreValue = userIgnoreEnabled ? userIgnoreValue : panel.ignoreValue;
+    const validMin = panel.variableMetadata?.validMin ?? null;
+    const validMax = panel.variableMetadata?.validMax ?? null;
     for (let i = 0; i < panel.currentData.length; i++) {
       const v = panel.currentData[i];
       if (isNaN(v) || !isFinite(v)) continue;

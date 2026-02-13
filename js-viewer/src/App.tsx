@@ -59,13 +59,14 @@ const COLORMAP_GRADIENTS: Record<string, string> = {
 };
 
 function FloatingColorbar() {
-  const { colormap, vmin, vmax, variableMetadata, panels, embedConfig } = useViewerStore();
+  const { colormap, vmin, vmax, panels, embedConfig } = useViewerStore();
 
   // Only show when data is loaded and colorbar isn't explicitly hidden
   const hasData = panels.some((p) => p.currentData !== null);
   if (!hasData || embedConfig?.show_colorbar === false) return null;
 
-  const unitsLabel = variableMetadata?.units || null;
+  // Get units from the first panel that has loaded metadata
+  const unitsLabel = panels.find((p) => p.variableMetadata?.units)?.variableMetadata?.units || null;
   const gradient = COLORMAP_GRADIENTS[colormap] || COLORMAP_GRADIENTS.viridis;
 
   return (
@@ -163,14 +164,20 @@ export default function App() {
   const showFloatingSlider = controlsMode === "time";
   const showFloatingColorbar = embedConfig !== null && controlsMode !== "all";
 
-  // Whether to force square aspect ratio on panels (2-panel embed layout)
-  const useSquarePanels = embedConfig !== null && panels.length === 2;
+  // Whether to use vertical (stacked) layout for 2-panel mode
+  const isVerticalLayout = embedConfig?.layout === "vertical" && panels.length === 2;
+
+  // Whether to force square aspect ratio on panels (2-panel embed layout, not vertical)
+  const useSquarePanels = embedConfig !== null && panels.length === 2 && !isVerticalLayout;
 
   // Calculate grid layout based on number of panels
   const getGridStyle = (count: number): React.CSSProperties => {
     if (count === 1) {
       return { gridTemplateColumns: "1fr", gridTemplateRows: "1fr" };
     } else if (count === 2) {
+      if (isVerticalLayout) {
+        return { gridTemplateColumns: "1fr", gridTemplateRows: "1fr 1fr" };
+      }
       if (useSquarePanels) {
         return { gridTemplateColumns: "1fr 1fr", gridTemplateRows: "auto", alignContent: "center" };
       }

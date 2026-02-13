@@ -21,8 +21,8 @@ export interface EmbedConfig {
   vmin?: number;
   /** Fixed color range max */
   vmax?: number;
-  /** Multi-panel config: [{model, experiment}, ...] */
-  panels?: Array<{ model: string; experiment: string }>;
+  /** Multi-panel config: [{model, experiment, ignore_value?}, ...] */
+  panels?: Array<{ model: string; experiment: string; ignore_value?: number }>;
   /** Which controls to show: "all" | "time" | "none" */
   controls?: "all" | "time" | "none";
   /** Auto-load data on init */
@@ -45,6 +45,8 @@ export interface EmbedConfig {
   show_colorbar?: boolean;
   /** Value to treat as NaN (e.g., 0 for zero-filled regions) */
   ignore_value?: number;
+  /** Layout for 2-panel mode: "auto" (side-by-side) or "vertical" (stacked) */
+  layout?: "auto" | "vertical";
   /** Grid parameter overrides (fallback if coordinate arrays not found) */
   grid_width?: number;
   grid_height?: number;
@@ -87,6 +89,11 @@ export function parseUrlParams(): EmbedConfig | null {
 
   config.default_year = int("default_year");
   config.ignore_value = num("ignore_value");
+
+  const layout = str("layout");
+  if (layout === "auto" || layout === "vertical") {
+    config.layout = layout;
+  }
 
   const showSelectors = params.get("show_selectors");
   if (showSelectors === "true" || showSelectors === "1") {

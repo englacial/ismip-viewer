@@ -19,7 +19,8 @@ export function Controls() {
     vmin,
     vmax,
     autoRange,
-    variableMetadata,
+    userIgnoreEnabled,
+    userIgnoreValue,
     dataView,
     isInitializing,
     setSelectedVariable,
@@ -27,13 +28,17 @@ export function Controls() {
     setColormap,
     setColorRange,
     setAutoRange,
+    setUserIgnoreEnabled,
+    setUserIgnoreValue,
     setDataView,
     addPanel,
     loadAllPanels,
   } = useViewerStore();
 
-  const unitsLabel = variableMetadata?.units || null;
-  const standardName = variableMetadata?.standardName || null;
+  // Get metadata from the first panel that has loaded it
+  const firstMeta = panels.find((p) => p.variableMetadata)?.variableMetadata;
+  const unitsLabel = firstMeta?.units || null;
+  const standardName = firstMeta?.standardName || null;
 
   // Compute year range (union of all panels)
   const range = yearRange(panels.map((p) => p.timeLabels));
@@ -281,6 +286,37 @@ export function Controls() {
           />
           Auto color range
         </label>
+      </div>
+
+      {/* Ignore Value Toggle */}
+      <div style={{ marginBottom: "12px" }}>
+        <label style={{ fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={userIgnoreEnabled}
+            onChange={(e) => setUserIgnoreEnabled(e.target.checked)}
+            style={{ marginRight: "8px" }}
+          />
+          Set ignore value
+        </label>
+        {userIgnoreEnabled && (
+          <input
+            type="number"
+            value={userIgnoreValue}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              if (!isNaN(v)) setUserIgnoreValue(v);
+            }}
+            style={{
+              width: "100%",
+              marginTop: "4px",
+              padding: "6px",
+              borderRadius: "4px",
+              border: "1px solid #ccc",
+              fontSize: "13px",
+            }}
+          />
+        )}
       </div>
 
       {/* Color Range Inputs */}
