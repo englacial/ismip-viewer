@@ -938,7 +938,7 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   },
 
   getValueAtGridPosition: (panelId: string, gridX: number, gridY: number) => {
-    const { panels, fillValue, ignoreValue } = get();
+    const { panels, fillValue, ignoreValue, variableMetadata } = get();
     const panel = panels.find((p) => p.id === panelId);
     if (!panel?.currentData || !panel?.dataShape) return null;
 
@@ -951,6 +951,11 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
     if (Math.abs(value) > 1e10) return null;
     if (fillValue !== null && Math.abs(value - fillValue) < Math.abs(fillValue) * 1e-6) return null;
     if (ignoreValue !== null && value === ignoreValue) return null;
+    // CF valid_range: values outside [valid_min, valid_max] are treated as missing
+    const validMin = variableMetadata?.validMin ?? null;
+    const validMax = variableMetadata?.validMax ?? null;
+    if (validMin !== null && value < validMin) return null;
+    if (validMax !== null && value > validMax) return null;
     return value;
   },
 
@@ -1205,7 +1210,9 @@ const DIVERGING_COLORMAPS = new Set(["coolwarm", "RdBu"]);
 
 // Helper to compute auto range across all loaded panels
 function computeAutoRange(get: () => ViewerState) {
-  const { panels, fillValue, ignoreValue, colormap } = get();
+  const { panels, fillValue, ignoreValue, colormap, variableMetadata } = get();
+  const validMin = variableMetadata?.validMin ?? null;
+  const validMax = variableMetadata?.validMax ?? null;
   const allValidValues: number[] = [];
 
   for (const panel of panels) {
@@ -1216,6 +1223,8 @@ function computeAutoRange(get: () => ViewerState) {
       if (Math.abs(v) > 1e10) continue;
       if (fillValue !== null && Math.abs(v - fillValue) < Math.abs(fillValue) * 1e-6) continue;
       if (ignoreValue !== null && v === ignoreValue) continue;
+      if (validMin !== null && v < validMin) continue;
+      if (validMax !== null && v > validMax) continue;
       allValidValues.push(v);
     }
   }

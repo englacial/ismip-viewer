@@ -166,6 +166,8 @@ export function dataToRGBA(
   colormapName: string,
   fillValue?: number | null,
   ignoreValue?: number | null,
+  validMin?: number | null,
+  validMax?: number | null,
 ): Uint8ClampedArray {
   const rgba = new Uint8ClampedArray(width * height * 4);
   const colors = COLORMAPS[colormapName] || COLORMAPS.viridis;
@@ -185,8 +187,9 @@ export function dataToRGBA(
       ? Math.abs(value) > 1e10 || Math.abs(value - fillValue) < Math.abs(fillValue) * 1e-6
       : Math.abs(value) > 1e10;
     const isIgnored = ignoreValue != null && value === ignoreValue;
+    const isOutOfRange = (validMin != null && value < validMin) || (validMax != null && value > validMax);
 
-    if (isNaN(value) || !isFinite(value) || isFill || isIgnored) {
+    if (isNaN(value) || !isFinite(value) || isFill || isIgnored || isOutOfRange) {
       rgba[pixelIdx] = 0;
       rgba[pixelIdx + 1] = 0;
       rgba[pixelIdx + 2] = 0;
