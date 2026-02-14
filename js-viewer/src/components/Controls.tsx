@@ -65,7 +65,7 @@ export function Controls() {
         backgroundColor: "#fafafa",
       }}
     >
-      <h2 style={{ margin: "0 0 16px 0", fontSize: "18px", fontWeight: 600 }}>
+      <h2 id="viewer-title" style={{ margin: "0 0 16px 0", fontSize: "18px", fontWeight: 600 }}>
         ISMIP6 Comparison
       </h2>
 

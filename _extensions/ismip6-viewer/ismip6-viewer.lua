@@ -1,30 +1,51 @@
 -- ISMIP6 Viewer Quarto Shortcode
 --
 -- Embeds the ISMIP6 ice sheet model viewer as an iframe.
+-- Shortcodes can span multiple lines for readability.
 --
--- Usage:
---   {{< ismip6-viewer model="DOE_MALI" experiment="ctrl_proj_std" variable="lithk" controls="time" >}}
+-- Usage (single panel):
+--   {{< ismip6-viewer
+--     store_url="https://data.source.coop/englacial/ismip6/icechunk-ais/"
+--     model="DOE_MALI"
+--     experiment="ctrl_proj_std"
+--     variable="lithk"
+--     controls="time"
+--   >}}
 --
 -- Multi-panel:
---   {{< ismip6-viewer panels='[{"model":"DOE_MALI","experiment":"exp05"},{"model":"JPL1_ISSM","experiment":"exp05"}]' variable="lithk" controls="time" >}}
+--   {{< ismip6-viewer
+--     store_url="https://data.source.coop/englacial/ismip6/icechunk-ais/"
+--     panels='[
+--       {"model":"DOE_MALI","experiment":"exp05"},
+--       {"model":"JPL1_ISSM","experiment":"exp05"}
+--     ]'
+--     variable="lithk"
+--     controls="time"
+--     height="750"
+--     default_year="2025"
+--     ignore_value="0"
+--   >}}
 --
 -- Options:
---   store_url   - icechunk store URL (required)
---   store_ref   - Store version: branch, tag, or snapshot ID (default: main)
---   model       - Model name (e.g., DOE_MALI)
---   experiment  - Experiment name (e.g., ctrl_proj_std)
---   variable    - Variable to display (e.g., lithk)
---   time        - Initial time index
---   colormap    - Colormap name (viridis, plasma, etc.)
---   vmin        - Color scale minimum
---   vmax        - Color scale maximum
---   panels      - JSON array of panel configs
---   controls    - Controls mode: all, time, none
---   default_year - Default year to display on load (e.g., 2025)
+--   store_url      - icechunk store URL (required)
+--   store_ref      - Store version: branch, tag, or snapshot ID (default: main)
+--   model          - Model name (e.g., DOE_MALI)
+--   experiment     - Experiment name (e.g., ctrl_proj_std)
+--   variable       - Variable to display (e.g., lithk)
+--   time           - Initial time index
+--   colormap       - Colormap name (viridis, plasma, etc.)
+--   vmin           - Color scale minimum
+--   vmax           - Color scale maximum
+--   panels         - JSON array of panel configs (supports per-panel ignore_value)
+--   controls       - Controls mode: all, time, none
+--   default_year   - Default year to display on load (e.g., 2025)
+--   ignore_value   - Value to treat as NaN (e.g., 0 for zero-filled regions)
+--   layout         - Panel layout: auto (side-by-side) or vertical (stacked)
 --   show_selectors - Show dropdowns when panels are pre-configured (true/false)
---   width       - iframe width (default: 100%)
---   height      - iframe height (default: 700)
---   url         - Override viewer base URL
+--   show_colorbar  - Show floating colorbar in embed mode (default: true)
+--   width          - iframe width (default: 100%)
+--   height         - iframe height (default: 700)
+--   url            - Override viewer base URL
 
 local DEFAULT_URL = "/static/models/"
 
