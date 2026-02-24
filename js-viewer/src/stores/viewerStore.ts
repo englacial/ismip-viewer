@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { IcechunkStore } from "@englacial/icechunk-js";
+import { IcechunkStore } from "@carbonplan/icechunk-js";
 import * as zarr from "zarrita";
 import { registerCodecs } from "../utils/codecs";
 import { parseUrlParams, EmbedConfig } from "../utils/urlParams";
@@ -566,22 +566,29 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       // Determine store URL (configurable via embed param)
       const storeUrl = embedConfig?.store_url || DEFAULT_STORE_URL;
 
-      // Transform S3/GCS URLs to accessible HTTPS endpoints.
+      // FetchClient rewrites virtual chunk URLs to accessible HTTPS endpoints.
+      // Cloud URLs have already been translated (s3:// → https://...) by the time
+      // fetchClient sees them. Dotted S3 buckets use path-style URLs.
       // In dev mode, route through the Vite proxy; in production, use data.source.coop directly.
-      const virtualUrlTransformer = (url: string) => {
-        if (url.startsWith("s3://us-west-2.opendata.source.coop/")) {
-          const path = url.replace("s3://us-west-2.opendata.source.coop/", "");
-          return import.meta.env.DEV
-            ? `/ismip6-proxy/${path.replace("englacial/ismip6/", "")}`
-            : `https://data.source.coop/${path}`;
-        }
-        if (url.startsWith("gs://ismip6/")) {
-          const path = url.replace("gs://ismip6/", "");
-          return import.meta.env.DEV
-            ? `/ismip6-proxy/${path}`
-            : `https://data.source.coop/englacial/ismip6/${path}`;
-        }
-        return url;
+      const fetchClient = {
+        async fetch(url: string, init?: RequestInit) {
+          let fetchUrl = url;
+          // Path-style S3: https://s3.amazonaws.com/us-west-2.opendata.source.coop/englacial/ismip6/...
+          if (url.startsWith("https://s3.amazonaws.com/us-west-2.opendata.source.coop/")) {
+            const path = url.replace("https://s3.amazonaws.com/us-west-2.opendata.source.coop/", "");
+            fetchUrl = import.meta.env.DEV
+              ? `/ismip6-proxy/${path.replace("englacial/ismip6/", "")}`
+              : `https://data.source.coop/${path}`;
+          }
+          // GCS: https://storage.googleapis.com/ismip6/...
+          if (url.startsWith("https://storage.googleapis.com/ismip6/")) {
+            const path = url.replace("https://storage.googleapis.com/ismip6/", "");
+            fetchUrl = import.meta.env.DEV
+              ? `/ismip6-proxy/${path}`
+              : `https://data.source.coop/englacial/ismip6/${path}`;
+          }
+          return globalThis.fetch(fetchUrl, init);
+        },
       };
 
       // Determine store ref: branch, tag, or snapshot ID
@@ -590,8 +597,8 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       // Open store — if ref looks like a snapshot ID (20-char base32), use it directly
       const isSnapshotId = /^[0-9A-Z]{20}$/.test(storeRef);
       const store = await IcechunkStore.open(storeUrl, {
-        ...(isSnapshotId ? { snapshot: storeRef } : { ref: storeRef }),
-        virtualUrlTransformer,
+        ...(isSnapshotId ? { snapshot: storeRef } : { branch: storeRef }),
+        fetchClient,
       });
 
       // Discover hierarchy (models/experiments/variables)
