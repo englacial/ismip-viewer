@@ -2,8 +2,16 @@ import { useEffect, useRef } from "react";
 import { Panel } from "./components/Panel";
 import { Controls } from "./components/Controls";
 import { useViewerStore } from "./stores/viewerStore";
+import type { EmbedConfig } from "./utils/urlParams";
 import { yearRange } from "./utils/cftime";
 import { formatValue } from "./utils/format";
+
+interface AppProps {
+  // When mounted as a library, callers pass config directly here and skip
+  // URL parsing entirely. Undefined means "read from window.location.search"
+  // (the SPA default).
+  embedConfigOverride?: EmbedConfig | null;
+}
 
 function FloatingTimeSlider() {
   const { timeIndex, setTimeIndex, panels } = useViewerStore();
@@ -106,13 +114,13 @@ function FloatingColorbar() {
   );
 }
 
-export default function App() {
+export default function App({ embedConfigOverride }: AppProps = {}) {
   const { initialize, isInitializing, initError, panels, activePanelId, embedConfig, timeIndex, selectedVariable, loadAllPanels } =
     useViewerStore();
 
   useEffect(() => {
-    initialize();
-  }, [initialize]);
+    initialize(embedConfigOverride);
+  }, [initialize, embedConfigOverride]);
 
   // Debounced auto-load on time slider change (100ms debounce for drag behavior)
   const timeIndexRef = useRef(timeIndex);

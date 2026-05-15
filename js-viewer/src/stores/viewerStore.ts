@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { IcechunkStore } from "@englacial/icechunk-js";
+import { IcechunkStore } from "icechunk-js";
+import type { FetchClient } from "icechunk-js";
 import * as zarr from "zarrita";
 import { registerCodecs } from "../utils/codecs";
 import { parseUrlParams, EmbedConfig } from "../utils/urlParams";
@@ -145,7 +146,7 @@ interface ViewerState {
   hoveredPanelId: string | null;
 
   // Actions
-  initialize: () => Promise<void>;
+  initialize: (configOverride?: EmbedConfig | null) => Promise<void>;
   setDataView: (view: DataView) => Promise<void>;
   addPanel: () => void;
   removePanel: (panelId: string) => void;
@@ -558,40 +559,60 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
   hoverGridPosition: null,
   hoveredPanelId: null,
 
-  initialize: async () => {
-    const embedConfig = parseUrlParams();
+  initialize: async (configOverride?: EmbedConfig | null) => {
+    // Library callers pass a config object (or null) explicitly; SPA callers
+    // pass nothing and we fall back to reading window.location.search.
+    const embedConfig =
+      configOverride !== undefined ? configOverride : parseUrlParams();
     const initialDataView: DataView = (embedConfig?.data_view as DataView) || "combined";
     set({ isInitializing: true, initError: null, embedConfig, dataView: initialDataView });
     try {
       // Determine store URL (configurable via embed param)
       const storeUrl = embedConfig?.store_url || DEFAULT_STORE_URL;
 
-      // Transform S3/GCS URLs to accessible HTTPS endpoints.
-      // In dev mode, route through the Vite proxy; in production, use data.source.coop directly.
-      const virtualUrlTransformer = (url: string) => {
-        if (url.startsWith("s3://us-west-2.opendata.source.coop/")) {
-          const path = url.replace("s3://us-west-2.opendata.source.coop/", "");
-          return import.meta.env.DEV
-            ? `/ismip6-proxy/${path.replace("englacial/ismip6/", "")}`
-            : `https://data.source.coop/${path}`;
-        }
-        if (url.startsWith("gs://ismip6/")) {
-          const path = url.replace("gs://ismip6/", "");
-          return import.meta.env.DEV
-            ? `/ismip6-proxy/${path}`
-            : `https://data.source.coop/englacial/ismip6/${path}`;
-        }
-        return url;
+      // EarthyScience icechunk-js auto-translates s3:// and gs:// in virtual
+      // chunk references to synthetic HTTPS URLs. For source.coop, those
+      // don't resolve (bucket is mediated through data.source.coop) and they
+      // hit CORS anyway, so we intercept at fetch time and rewrite.
+      //
+      // Note: icechunk-js uses *path-style* S3 addressing (s3.amazonaws.com/
+      // <bucket>/<key>) for buckets with dots in the name, because virtual-
+      // hosted-style breaks SSL for multi-dot bucket names.
+      const SOURCE_COOP_S3 = "https://s3.amazonaws.com/us-west-2.opendata.source.coop/";
+      const SOURCE_COOP_S3_VHOST = "https://us-west-2.opendata.source.coop.s3.amazonaws.com/";
+      const GCS_ISMIP6 = "https://storage.googleapis.com/ismip6/";
+
+      const fetchClient: FetchClient = {
+        async fetch(url, init) {
+          let u = url.toString();
+          for (const prefix of [SOURCE_COOP_S3, SOURCE_COOP_S3_VHOST]) {
+            if (u.startsWith(prefix)) {
+              const path = u.slice(prefix.length);
+              u = import.meta.env.DEV
+                ? `/ismip6-proxy/${path.replace("englacial/ismip6/", "")}`
+                : `https://data.source.coop/${path}`;
+              break;
+            }
+          }
+          if (u.startsWith(GCS_ISMIP6)) {
+            const path = u.slice(GCS_ISMIP6.length);
+            u = import.meta.env.DEV
+              ? `/ismip6-proxy/${path}`
+              : `https://data.source.coop/englacial/ismip6/${path}`;
+          }
+          return globalThis.fetch(u, init);
+        },
       };
 
-      // Determine store ref: branch, tag, or snapshot ID
+      // Determine store ref: branch, tag, or snapshot ID.
+      // TODO: the fork used a single `ref:` field that worked for both branches
+      // and tags. EarthyScience requires distinguishing. For now we treat any
+      // non-snapshot ref as a branch — revisit if/when tag-pinning is used.
       const storeRef = embedConfig?.store_ref || "main";
-
-      // Open store — if ref looks like a snapshot ID (20-char base32), use it directly
       const isSnapshotId = /^[0-9A-Z]{20}$/.test(storeRef);
       const store = await IcechunkStore.open(storeUrl, {
-        ...(isSnapshotId ? { snapshot: storeRef } : { ref: storeRef }),
-        virtualUrlTransformer,
+        ...(isSnapshotId ? { snapshot: storeRef } : { branch: storeRef }),
+        fetchClient,
       });
 
       // Discover hierarchy (models/experiments/variables)
