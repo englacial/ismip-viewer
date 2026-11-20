@@ -579,13 +579,14 @@ export const useViewerStore = create<ViewerState>((set, get) => ({
       // <bucket>/<key>) for buckets with dots in the name, because virtual-
       // hosted-style breaks SSL for multi-dot bucket names.
       const SOURCE_COOP_S3 = "https://s3.amazonaws.com/us-west-2.opendata.source.coop/";
+      const SOURCE_COOP_S3_REGIONAL = "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/";
       const SOURCE_COOP_S3_VHOST = "https://us-west-2.opendata.source.coop.s3.amazonaws.com/";
       const GCS_ISMIP6 = "https://storage.googleapis.com/ismip6/";
 
       const fetchClient: FetchClient = {
         async fetch(url, init) {
           let u = url.toString();
-          for (const prefix of [SOURCE_COOP_S3, SOURCE_COOP_S3_VHOST]) {
+          for (const prefix of [SOURCE_COOP_S3, SOURCE_COOP_S3_REGIONAL, SOURCE_COOP_S3_VHOST]) {
             if (u.startsWith(prefix)) {
               const path = u.slice(prefix.length);
               u = import.meta.env.DEV
